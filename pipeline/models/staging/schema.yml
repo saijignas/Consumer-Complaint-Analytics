@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: stg_complaints
+    description: >
+      Cleaned complaint data: exact-duplicate/templated narratives and
+      too-short narratives dropped, dates typed, timely-response flag
+      cast to boolean.
+    columns:
+      - name: complaint_id
+        description: Unique identifier for the complaint.
+        tests:
+          - unique
+          - not_null
+      - name: product
+        description: The financial product category the complaint is about.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - "Credit card"
+                  - "Mortgage"
+                  - "Checking or savings account"
+                  - "Student loan"
+                  - "Vehicle loan or lease"
+                  - "Money transfer, virtual currency, or money service"
+      - name: narrative
+        description: The consumer's free-text complaint narrative.
+        tests:
+          - not_null
+      - name: narrative_length
+        description: Character length of the narrative (post-cleaning, always >= 20).
+        tests:
+          - not_null
+      - name: was_timely
+        description: Whether the company responded within the required timeframe.
+        tests:
+          - not_null

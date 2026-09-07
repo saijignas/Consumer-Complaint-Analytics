@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: complaints
+        description: >
+          Raw CFPB consumer complaints, pulled live from the public API
+          (scripts/load_raw.py). One row per complaint that has a
+          consumer-submitted narrative.
