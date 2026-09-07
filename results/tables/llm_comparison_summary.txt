@@ -1,0 +1,6 @@
+provider=gemini
+n_rows=240
+baseline_acc=0.8125
+llm_acc_parseable_only=0.8787
+llm_unparseable=1
+llm_mean_latency_s=2.478
