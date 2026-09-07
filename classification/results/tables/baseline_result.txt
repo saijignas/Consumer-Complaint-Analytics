@@ -1,0 +1,3 @@
+cv_macro_f1_mean=0.8357
+cv_macro_f1_half_width=0.0067
+held_out_macro_f1=0.8400

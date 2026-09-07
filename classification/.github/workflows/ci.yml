@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # pull_data.py (live CFPB API) and llm_compare.py (needs a paid/
+      # rate-limited API key) are intentionally NOT run here -- CI smoke-
+      # tests the deterministic, offline part of the pipeline against the
+      # already-committed data/complaints_raw.csv instead.
+      - name: Run the classical pipeline against the committed dataset
+        run: |
+          python src/eda.py
+          python src/baseline.py
+          python src/confusion.py
+          python src/compare_plot.py
