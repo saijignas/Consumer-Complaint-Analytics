@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: mart_complaints_by_category
+    description: One row per product category with volume and response metrics.
+    columns:
+      - name: product
+        tests: [unique, not_null]
+      - name: complaint_count
+        tests: [not_null]
+
+  - name: mart_company_response_analysis
+    description: One row per company-response type with volume and timeliness.
+    columns:
+      - name: company_response
+        tests: [unique, not_null]
+
+  - name: mart_top_companies
+    description: Top 25 companies by complaint volume (min 10 complaints), with timely-response rate.
+    columns:
+      - name: company
+        tests: [unique, not_null]

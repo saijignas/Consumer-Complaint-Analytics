@@ -1,0 +1,5 @@
+company_response,complaint_count,pct_timely_response,avg_days_to_route
+Closed with explanation,2530,98.3,0.9
+Closed with monetary relief,241,98.3,0.3
+Closed with non-monetary relief,200,100.0,0.4
+Untimely response,10,0.0,0.7

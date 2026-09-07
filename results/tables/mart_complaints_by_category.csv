@@ -1,0 +1,7 @@
+product,complaint_count,avg_narrative_length,pct_timely_response,avg_days_to_route,distinct_companies
+Student loan,500,1205.0,95.2,2.1,31
+Mortgage,500,1811.0,98.8,0.6,104
+Checking or savings account,500,1204.0,99.2,0.2,72
+"Money transfer, virtual currency, or money service",499,1418.0,98.0,0.8,88
+Vehicle loan or lease,498,1334.0,98.2,0.4,94
+Credit card,484,1366.0,99.4,0.5,56

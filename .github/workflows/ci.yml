@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  dbt:
+    runs-on: ubuntu-latest
+    env:
+      DBT_PROFILES_DIR: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Runs against the already-committed warehouse.duckdb (raw.complaints
+      # already loaded) rather than re-pulling from the live CFPB API, so
+      # this is deterministic and has no network dependency.
+      - name: dbt run
+        run: dbt run
+
+      - name: dbt test
+        run: dbt test
