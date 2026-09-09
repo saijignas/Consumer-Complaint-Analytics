@@ -1,13 +1,22 @@
-name: CI
+name: Classification CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
+    paths:
+      - "classification/**"
+      - ".github/workflows/classification-ci.yml"
   pull_request:
+    paths:
+      - "classification/**"
+      - ".github/workflows/classification-ci.yml"
 
 jobs:
   smoke-test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: classification
     steps:
       - uses: actions/checkout@v4
 

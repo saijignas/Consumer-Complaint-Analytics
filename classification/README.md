@@ -1,5 +1,5 @@
 # Consumer Complaint Triage — Classical Baseline vs. LLM Classification
-![CI](https://github.com/saijignas/Consumer-Complaint-Triage/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/saijignas/Consumer-Complaint-Analytics/actions/workflows/classification-ci.yml/badge.svg)
 
 Classifies real consumer-complaint narratives into product categories, then
 asks the question that actually decides which approach you'd ship: not

@@ -1,13 +1,22 @@
-name: CI
+name: Pipeline CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
+    paths:
+      - "pipeline/**"
+      - ".github/workflows/pipeline-ci.yml"
   pull_request:
+    paths:
+      - "pipeline/**"
+      - ".github/workflows/pipeline-ci.yml"
 
 jobs:
   dbt:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipeline
     env:
       DBT_PROFILES_DIR: .
     steps:
@@ -31,6 +40,9 @@ jobs:
 
   orchestration:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipeline
     env:
       AIRFLOW_HOME: /home/runner/airflow_home
       AIRFLOW__CORE__DAGS_FOLDER: ${{ github.workspace }}/pipeline/orchestration/dags
@@ -47,7 +59,6 @@ jobs:
       # into Airflow's environment -- avoids a dependency clash between
       # dbt-core's and Airflow's pinned constraint sets.
       - name: Set up the pipeline venv (dbt, duckdb)
-        working-directory: pipeline
         run: |
           python -m venv .venv
           .venv/bin/pip install -q -r requirements.txt
@@ -71,21 +82,18 @@ jobs:
       # only the deterministic downstream tasks directly against the
       # already-committed warehouse.duckdb, via `airflow tasks test`
       # (executes one task without requiring upstream tasks to have run).
-      # A full 5-task live run is verified locally; see orchestration/README.md.
+      # A full 5-task live run is verified locally; see
+      # pipeline/orchestration/README.md.
       - name: Run dbt_run task
-        working-directory: pipeline
         run: airflow tasks test complaint_pipeline dbt_run 2026-09-09
 
       - name: Run dbt_test task
-        working-directory: pipeline
         run: airflow tasks test complaint_pipeline dbt_test 2026-09-09
 
       - name: Run export_parquet task
-        working-directory: pipeline
         run: airflow tasks test complaint_pipeline export_parquet 2026-09-09
 
       - name: Verify Parquet output was actually written
-        working-directory: pipeline
         run: |
           test -f "data_lake/mart_complaints_by_category/run_date=2026-09-09/data_0.parquet"
           test -f "data_lake/mart_company_response_analysis/run_date=2026-09-09/data_0.parquet"

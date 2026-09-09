@@ -1,5 +1,5 @@
 # Complaint Analytics Pipeline — dbt + DuckDB
-![CI](https://github.com/saijignas/Complaint-Analytics-Pipeline/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/saijignas/Consumer-Complaint-Analytics/actions/workflows/pipeline-ci.yml/badge.svg)
 
 A real analytics-engineering pipeline, not a notebook: raw data lands in
 a warehouse, staging models clean it with tested assumptions, mart
