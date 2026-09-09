@@ -28,3 +28,65 @@ jobs:
 
       - name: dbt test
         run: dbt test
+
+  orchestration:
+    runs-on: ubuntu-latest
+    env:
+      AIRFLOW_HOME: /home/runner/airflow_home
+      AIRFLOW__CORE__DAGS_FOLDER: ${{ github.workspace }}/pipeline/orchestration/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # dbt/duckdb get their own isolated venv, matching how the DAG
+      # itself shells out to pipeline/.venv rather than importing dbt
+      # into Airflow's environment -- avoids a dependency clash between
+      # dbt-core's and Airflow's pinned constraint sets.
+      - name: Set up the pipeline venv (dbt, duckdb)
+        working-directory: pipeline
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -q -r requirements.txt
+
+      - name: Install Airflow
+        run: |
+          pip install -q "apache-airflow==2.10.4" \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.4/constraints-3.11.txt"
+
+      - name: Initialize Airflow metadata DB
+        run: airflow db migrate
+
+      - name: Verify the DAG has no import errors
+        run: |
+          errors=$(airflow dags list-import-errors --output json)
+          echo "$errors"
+          [ "$errors" = "[]" ]
+
+      # The DAG's first two tasks (wait_for_cfpb_api, extract_load) hit the
+      # live CFPB API, so -- same reasoning as the dbt job above -- CI runs
+      # only the deterministic downstream tasks directly against the
+      # already-committed warehouse.duckdb, via `airflow tasks test`
+      # (executes one task without requiring upstream tasks to have run).
+      # A full 5-task live run is verified locally; see orchestration/README.md.
+      - name: Run dbt_run task
+        working-directory: pipeline
+        run: airflow tasks test complaint_pipeline dbt_run 2026-09-09
+
+      - name: Run dbt_test task
+        working-directory: pipeline
+        run: airflow tasks test complaint_pipeline dbt_test 2026-09-09
+
+      - name: Run export_parquet task
+        working-directory: pipeline
+        run: airflow tasks test complaint_pipeline export_parquet 2026-09-09
+
+      - name: Verify Parquet output was actually written
+        working-directory: pipeline
+        run: |
+          test -f "data_lake/mart_complaints_by_category/run_date=2026-09-09/data_0.parquet"
+          test -f "data_lake/mart_company_response_analysis/run_date=2026-09-09/data_0.parquet"
+          test -f "data_lake/mart_top_companies/run_date=2026-09-09/data_0.parquet"

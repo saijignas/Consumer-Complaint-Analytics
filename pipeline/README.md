@@ -22,7 +22,13 @@ flowchart LR
     STG --> M1[mart_complaints_by_category]
     STG --> M2[mart_company_response_analysis]
     STG --> M3[mart_top_companies]
+    M1 & M2 & M3 -->|export_parquet.py| LAKE[(Parquet data lake\npartitioned by run_date)]
 ```
+
+The whole thing — sensor, extract, `dbt run`, `dbt test`, Parquet export —
+runs as a scheduled Airflow DAG. See **[orchestration/](orchestration/)**
+for the DAG, how it's verified locally vs. in CI, and why the gap
+mattered enough to build.
 
 Real CFPB complaint data pulled live from the public API (same source as
 the [Consumer-Complaint-Triage](https://github.com/saijignas/Consumer-Complaint-Triage)
@@ -90,14 +96,19 @@ just fit a model once.
 
 ## Limitations
 
-- Single ingestion pull (3,000 rows, one point in time) -- a real
-  pipeline would run on a schedule; this project demonstrates the model
-  layer and testing discipline, not orchestration/scheduling.
 - DuckDB is a real embedded warehouse, not a toy, but it's not the
   distributed warehouse (Snowflake/BigQuery/Redshift) a production
   pipeline at scale would use -- the dbt models themselves would need
   little to no change to point at one, which is the actual argument for
-  writing transformations in dbt rather than ad-hoc scripts.
+  writing transformations in dbt rather than ad-hoc scripts. The Parquet
+  export in `orchestration/` is the honest middle ground: partitioned,
+  columnar, and readable by Spark/Athena/BigQuery external tables without
+  needing a warehouse migration first.
+- The Airflow DAG uses `SequentialExecutor` + SQLite (Airflow's own
+  default for a single-node setup) -- correct for demonstrating real
+  orchestration, not a claim that this is a horizontally-scaled
+  production deployment. See `orchestration/README.md` for exactly what
+  was verified locally vs. in CI, and what a production setup would add.
 - `accepted_values` on `product` will correctly fail if CFPB ever adds a
   7th category to this specific pull -- intentional, not a bug, but
   worth knowing before assuming a red CI run means something is broken
@@ -116,7 +127,12 @@ export DBT_PROFILES_DIR=.      # profiles.yml lives in this repo, not ~/.dbt/
 dbt run
 dbt test
 dbt docs generate && dbt docs serve
+
+python scripts/export_parquet.py   # exports the 3 marts to a partitioned data_lake/
 ```
+
+To run the whole thing as a scheduled Airflow DAG instead of by hand,
+see **[orchestration/README.md](orchestration/README.md)**.
 
 ## Files
 
@@ -135,8 +151,12 @@ models/
     schema.yml
 tests/
   assert_no_negative_routing_days.sql  # singular data-integrity test
+orchestration/
+  dags/complaint_pipeline_dag.py       # Airflow DAG: sensor -> extract -> dbt run/test -> Parquet export
+  README.md                            # how it's run and verified, locally vs. in CI
 docs/                                  # generated dbt docs site (GitHub Pages)
 results/tables/                        # mart outputs exported as CSV
+data_lake/                             # mart outputs exported as partitioned Parquet (run_date=YYYY-MM-DD)
 dbt_project.yml
 profiles.yml                           # self-contained: no ~/.dbt/ setup needed
 ```

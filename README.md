@@ -4,7 +4,7 @@ Two projects on the same real dataset (live CFPB consumer complaint data), previ
 
 ## [Pipeline](pipeline/) — dbt + DuckDB
 
-Ingests live CFPB complaint data through a tested dbt + DuckDB pipeline: staging models dedupe templated/mass-filed complaints and catch data-integrity issues (15 automated tests), rolling up into 3 dimensional marts with a [generated docs site](https://saijignas.github.io/Complaint-Analytics-Pipeline/) showing full model lineage.
+Ingests live CFPB complaint data through a tested dbt + DuckDB pipeline: staging models dedupe templated/mass-filed complaints and catch data-integrity issues (15 automated tests), rolling up into 3 dimensional marts with a [generated docs site](https://saijignas.github.io/Complaint-Analytics-Pipeline/) showing full model lineage. Orchestrated end-to-end by an [Airflow DAG](pipeline/orchestration/) — sensor, extract, `dbt run`/`dbt test`, then export to a `run_date`-partitioned Parquet data lake.
 
 ## [Classification](classification/) — ML vs. LLM
 
