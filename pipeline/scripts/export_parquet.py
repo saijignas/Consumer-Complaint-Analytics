@@ -27,22 +27,34 @@ MARTS = [
     "mart_top_companies",
 ]
 
+# Row-level fact table, exported alongside the pre-aggregated marts.
+# The 3 marts above are aggregated at different, non-joinable grains
+# (by product, by company, by response type) -- a downstream engine
+# that wants a *fresh* cross-cutting question answered (e.g. "which
+# companies are worst-in-class within their own product category")
+# needs the row-level data, not another pre-computed rollup. This is
+# also just realistic: a real lake exports the cleaned fact table, not
+# only the marts built on top of it.
+FACT_TABLES = [
+    "stg_complaints",
+]
 
-def export_mart(con, mart: str, run_date: str, lake_root: Path) -> int:
-    out_dir = lake_root / mart
+
+def export_table(con, table: str, run_date: str, lake_root: Path) -> int:
+    out_dir = lake_root / table
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    row_count = con.execute(f"SELECT COUNT(*) FROM main.{mart}").fetchone()[0]
+    row_count = con.execute(f"SELECT COUNT(*) FROM main.{table}").fetchone()[0]
     if row_count == 0:
         raise RuntimeError(
-            f"{mart} has 0 rows -- refusing to export an empty partition "
+            f"{table} has 0 rows -- refusing to export an empty partition "
             "(likely means dbt run/test hasn't populated it yet)"
         )
 
     con.execute(f"""
         COPY (
             SELECT *, DATE '{run_date}' AS run_date
-            FROM main.{mart}
+            FROM main.{table}
         )
         TO '{out_dir.as_posix()}'
         (FORMAT PARQUET, PARTITION_BY (run_date), OVERWRITE_OR_IGNORE TRUE)
@@ -54,15 +66,16 @@ def main(run_date: str | None = None):
     run_date = run_date or date.today().isoformat()
     con = duckdb.connect(str(DB_PATH), read_only=True)
 
-    print(f"Exporting marts to Parquet data lake (run_date={run_date})")
+    print(f"Exporting to Parquet data lake (run_date={run_date})")
     total = 0
-    for mart in MARTS:
-        n = export_mart(con, mart, run_date, LAKE_ROOT)
-        print(f"  {mart}: {n} rows -> data_lake/{mart}/run_date={run_date}/")
+    for table in MARTS + FACT_TABLES:
+        n = export_table(con, table, run_date, LAKE_ROOT)
+        kind = "mart" if table in MARTS else "fact table"
+        print(f"  [{kind}] {table}: {n} rows -> data_lake/{table}/run_date={run_date}/")
         total += n
 
     con.close()
-    print(f"Done. {total} total rows exported across {len(MARTS)} marts.")
+    print(f"Done. {total} total rows exported across {len(MARTS) + len(FACT_TABLES)} datasets.")
 
 
 if __name__ == "__main__":

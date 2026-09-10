@@ -10,17 +10,19 @@ with source as (
 
 renamed as (
     select
-        complaint_id::bigint as complaint_id,
+        cast(complaint_id as {{ dbt.type_bigint() }}) as complaint_id,
         product,
         sub_product,
         issue,
         sub_issue,
         company,
         state,
-        -- DuckDB's %z wants a numeric offset (+00), not the literal "Z"
-        -- these ISO8601 timestamps actually use, so it's swapped in first.
-        strptime(replace(date_received, 'Z', '+00'), '%Y-%m-%dT%H:%M:%S.%f%z')::date as date_received,
-        strptime(replace(date_sent_to_company, 'Z', '+00'), '%Y-%m-%dT%H:%M:%S.%f%z')::date as date_sent_to_company,
+        -- Warehouse-portable timestamp parsing: see macros/parse_iso_timestamp.sql
+        -- for why this needs a per-adapter implementation rather than one
+        -- expression -- DuckDB and BigQuery genuinely disagree on what a
+        -- valid ISO8601-with-"Z" string looks like, not just on syntax.
+        cast({{ parse_iso_timestamp('date_received') }} as date) as date_received,
+        cast({{ parse_iso_timestamp('date_sent_to_company') }} as date) as date_sent_to_company,
         company_response,
         (timely = 'Yes') as was_timely,
         submitted_via,
@@ -46,7 +48,7 @@ select
     state,
     date_received,
     date_sent_to_company,
-    date_diff('day', date_received, date_sent_to_company) as days_to_route,
+    {{ dbt.datediff('date_received', 'date_sent_to_company', 'day') }} as days_to_route,
     company_response,
     was_timely,
     submitted_via,

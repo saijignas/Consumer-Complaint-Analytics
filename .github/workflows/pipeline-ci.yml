@@ -98,3 +98,34 @@ jobs:
           test -f "data_lake/mart_complaints_by_category/run_date=2026-09-09/data_0.parquet"
           test -f "data_lake/mart_company_response_analysis/run_date=2026-09-09/data_0.parquet"
           test -f "data_lake/mart_top_companies/run_date=2026-09-09/data_0.parquet"
+          test -f "data_lake/stg_complaints/run_date=2026-09-09/data_0.parquet"
+
+  spark:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # PySpark needs a JVM -- ubuntu-latest ships one, but pinning it
+      # explicitly avoids depending on whatever happens to be preinstalled.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyspark==3.5.3 pytest
+
+      # Runs against the synthetic in-memory data built into the test
+      # file, not the real lake -- verifies the groupBy/join/window logic
+      # itself, with no dependency on the committed Parquet data's shape.
+      - name: Run Spark analysis unit tests
+        run: pytest tests/test_spark_analysis.py -v

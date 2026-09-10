@@ -94,21 +94,48 @@ silently wrong number. That's the actual job behind "data scientist"
 postings that are really asking for someone who can own a pipeline, not
 just fit a model once.
 
+## A real second warehouse, and Spark against the actual lake
+
+The claim used to be "the dbt models would need little to no change to
+point at a real distributed warehouse." That's now proven, not argued:
+
+- **BigQuery**: `dbt run --target bigquery` builds all 4 models and
+  `dbt test --target bigquery` passes all 15 tests against real BigQuery,
+  not just DuckDB. One real, disclosed portability fix was needed --
+  `strptime`/`::cast`/`date_diff('day', ...)` are DuckDB-specific.
+  `models/staging/stg_complaints.sql` now uses ANSI `cast(...)`, dbt's
+  built-in `dbt.datediff()` cross-database macro, and a small per-adapter
+  `parse_iso_timestamp()` macro (`macros/parse_iso_timestamp.sql`) for the
+  one thing the two engines genuinely disagree on (DuckDB needs `Z`
+  swapped for `+00` before parsing; BigQuery's `TIMESTAMP()` accepts the
+  original string as-is). Every mart's numbers match exactly across both
+  targets -- see `profiles.yml` for the BigQuery target config.
+- **Spark, against the real data lake**: `spark/spark_lake_analysis.py`
+  reads the row-level `stg_complaints` fact export with PySpark and
+  answers a question the three pre-aggregated marts can't answer alone
+  (they're aggregated at different, non-joinable grains): which
+  companies are worst-in-class *within their own product category*, not
+  just worst overall. Unit tested (`tests/test_spark_analysis.py`,
+  synthetic data, runs in CI) and deployed for real to Databricks
+  serverless compute against a Unity Catalog volume
+  (`databricks/deploy.py` -- see `databricks/README.md` for the actual
+  verified run and output). On this data's real size (a few thousand
+  rows) DuckDB could answer the same query alone -- the point is
+  demonstrating the Spark DataFrame API itself, not a performance win
+  that doesn't exist at this scale.
+
 ## Limitations
 
-- DuckDB is a real embedded warehouse, not a toy, but it's not the
-  distributed warehouse (Snowflake/BigQuery/Redshift) a production
-  pipeline at scale would use -- the dbt models themselves would need
-  little to no change to point at one, which is the actual argument for
-  writing transformations in dbt rather than ad-hoc scripts. The Parquet
-  export in `orchestration/` is the honest middle ground: partitioned,
-  columnar, and readable by Spark/Athena/BigQuery external tables without
-  needing a warehouse migration first.
 - The Airflow DAG uses `SequentialExecutor` + SQLite (Airflow's own
   default for a single-node setup) -- correct for demonstrating real
   orchestration, not a claim that this is a horizontally-scaled
   production deployment. See `orchestration/README.md` for exactly what
   was verified locally vs. in CI, and what a production setup would add.
+- The BigQuery and Databricks integrations are verified but not re-run on
+  every CI push -- a free-tier cloud account isn't something to hit on
+  every commit. Re-run `dbt run --target bigquery` or
+  `databricks/deploy.py` manually if the models or the analysis logic
+  change.
 - `accepted_values` on `product` will correctly fail if CFPB ever adds a
   7th category to this specific pull -- intentional, not a bug, but
   worth knowing before assuming a red CI run means something is broken
@@ -128,7 +155,16 @@ dbt run
 dbt test
 dbt docs generate && dbt docs serve
 
-python scripts/export_parquet.py   # exports the 3 marts to a partitioned data_lake/
+python scripts/export_parquet.py   # exports the 3 marts + the row-level fact table to a partitioned data_lake/
+
+# Optional: run the same models against BigQuery instead of DuckDB
+# (needs GOOGLE_APPLICATION_CREDENTIALS pointed at a service account key)
+dbt run --target bigquery
+dbt test --target bigquery
+
+# Optional: run the Spark analysis locally against the lake
+pip install pyspark==3.5.3
+python spark/spark_lake_analysis.py
 ```
 
 To run the whole thing as a scheduled Airflow DAG instead of by hand,

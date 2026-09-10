@@ -5,3 +5,16 @@ complaint_analytics:
       type: duckdb
       path: warehouse.duckdb
       threads: 4
+    # Same dbt models, a real distributed warehouse instead of DuckDB --
+    # this is the actual argument for writing transformations in dbt
+    # rather than ad-hoc scripts: the model layer barely changes.
+    # Requires GOOGLE_APPLICATION_CREDENTIALS to point at a service
+    # account JSON key with BigQuery Data Editor + Job User roles.
+    bigquery:
+      type: bigquery
+      method: service-account
+      project: gen-lang-client-0775032101
+      dataset: complaint_analytics
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS') }}"
+      threads: 4
+      location: US
