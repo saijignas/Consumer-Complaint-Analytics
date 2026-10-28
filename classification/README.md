@@ -9,6 +9,24 @@ reliability together, on the exact same held-out rows.
 **Stack:** Python, scikit-learn (TF-IDF + logistic regression), Gemini API
 (zero-shot classification), Pandas.
 
+## How the data flows
+
+```mermaid
+flowchart TD
+    API[("CFPB public API")] -->|"src/pull_data.py<br/>800 per category x 6 = 4,800<br/>sampled by category, not at random"| RAW["data/complaints_raw.csv"]
+    RAW -->|"src/clean.py<br/>collapse exact-duplicate narratives,<br/>keep the XXXX PII tokens"| CLEAN["clean complaints"]
+    CLEAN -->|"80% train"| FIT["TF-IDF + logistic regression<br/>5x3 repeated CV<br/>macro-F1 0.836 +/- 0.007"]
+    CLEAN -->|"20% held out,<br/>untouched until the end"| PREDS["Held-out rows + baseline predictions<br/>macro-F1 0.840"]
+    FIT -->|"predict"| PREDS
+    PREDS -->|"src/llm_compare.py<br/>stratified sample: 40 per category"| SAMPLE["The same 240 rows"]
+    SAMPLE --> B["Baseline<br/>81.2% accurate, about 0.001 s per row"]
+    SAMPLE --> G["Gemini zero-shot<br/>category list + complaint, no examples<br/>87.9% on parseable outputs, 2.48 s per call<br/>1 of 240 outputs was not a valid category"]
+    B --> CMP["Compare accuracy, latency<br/>and output reliability"]
+    G --> CMP
+```
+
+The baseline never sees the 20% held-out rows until the end, and the LLM is scored on a stratified sample of exactly those rows, so the comparison is like for like. Every number in the diagram is explained in the sections below.
+
 ## Dataset
 
 Pulled live from the [CFPB Consumer Complaint Database](https://www.consumerfinance.gov/data-research/consumer-complaints/) public API —
